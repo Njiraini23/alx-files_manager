@@ -69,33 +69,7 @@ an asynchronous function set that takes a string key, a value and a duration in 
 an asynchronous function del that takes a string key as argument and remove the value in Redis for this key
 After the class definition, create and export an instance of RedisClient called redisClient.
 
-bob@dylan:~$ cat main.js
-import redisClient from './utils/redis';
-
-(async () => {
-    console.log(redisClient.isAlive());
-    console.log(await redisClient.get('myKey'));
-    await redisClient.set('myKey', 12, 5);
-    console.log(await redisClient.get('myKey'));
-
-    setTimeout(async () => {
-        console.log(await redisClient.get('myKey'));
-    }, 1000*10)
-})();
-
-bob@dylan:~$ npm run dev main.js
-true
-null
-12
-null
-bob@dylan:~$ 
-Repo:
-
-GitHub repository: alx-files_manager
-File: utils/redis.js
-
-1. MongoDB utils
-mandatory
+1. mandatory
 Inside the folder utils, create a file db.js that contains the class DBClient.
 
 DBClient should have:
