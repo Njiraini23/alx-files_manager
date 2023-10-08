@@ -8,16 +8,16 @@ const url = `mongodb://${host}:${port}`;
 class DBClient {
   constructor() {
     this.client = new MongoClient(url, { useUnifiedTopology: true, useNewUrlParser: true });
-    this.client.connect().then() => {
+    this.client.connect().then(() => {
       this.db = this.client.connect.db(`${database}`);
-  }).catch((err) => {
+    }).catch((err) => {
       console.log(err);
-  });
-}
+    });
+  }
 
-isAlive() {
-  return this.client.isConnected();
-}
+  isAlive() {
+    return this.client.isConnected();
+  }
 
   async nbUsers() {
     const users = this.db.collection('users');
