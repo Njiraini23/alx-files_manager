@@ -44,4 +44,130 @@ class FilesController {
     }
 
     const files = dbClient.db.collection('files');
-    if (parentId) 
+    if (parentId) {
+      const idObject = new ObjectID(parentId);
+      const file = await files.findOne({ _id: idObject, userId: user._id });
+      if (!file) {
+        return response.status(400).json({ error: 'Parent not found' });
+      }
+      if (file.type !== 'folder') {
+        return response.status(400).json({ error: 'Parent is not a folder' });
+      }
+    }
+    if (type === 'folder') {
+      files.insertOne(
+        {
+          userId: user._id,
+          name,
+          type,
+          parentId: parentId || 0,
+          isPublic,
+	},
+      ).then((result) => response.status(201).json({
+        id: result.insertedId,
+        userId: user._id,
+        name,
+        type,
+        isPublic,
+        parentId: parentId || 0,
+      })).catch((error);
+        console.log(error);
+    });
+  } else {
+    const filePath = process.env.FOLDER_PATH || '/tmp/files_manager';
+    const fileName = `${filePath}/${uuidv4()}`;
+    const buff = Buffer.from(data, 'base64');
+    // store the buffer in utf-8
+    try {
+      try {
+        await fs.mkdir(filePath);
+      } catch (error) {
+        // pass the errors
+      }
+      await fs.writeFile(fileName, buff, 'utf-8');
+    } catch (error) {
+      console.log(error);
+    }
+    files.insertOne(
+      {
+        userId: user._id,
+        name,
+        type,
+        isPublic,
+        parentId: parentId || 0,
+        localpath: filename,
+      },
+    ).then((result) => {
+      response.status(201).json(
+        {
+          id: result.insertedId,
+	  userId: user._id,
+          name, 
+          type,
+          isPublic,
+          parentId: parentId || 0,
+	},
+      );
+      if (type === 'image') {
+        fileQueue.add(
+          {
+            userId: user._id,
+            fileId: result.insertedId,
+	  },
+      };
+    }
+  }).catch((error) => console.log(error));
+}
+return null;
+}
+
+static async getIndex(request, response) {
+  const user = await FilesController.getUser(request);
+  if (!user) {
+    return response.status(401).json({ error: 'Unauthorized' });
+  }
+  const {
+    parentId,
+    page,
+  } = request.query;
+  const pageNum = page || 0;
+  const files = dbClient.db.collection('files');
+  let query;
+  if (!parentId) {
+    query = { userId: user._id, parentId:ObjectID(parentId) };
+  } else {
+    query = { userId: user:_id, parentId: ObjectID(parentId) };
+  }
+  files.aggregate(
+    [
+      { $match: query },
+      { $sort: { _id: -1 } },
+      {
+        $facet: {
+          metadata: [{ $count: 'total' }, { $addFields: { page: parseInt(pageNum, 10) } }],
+          data: [{ $skip: 20 * parseInt(pageNum, 10) }, { $limit: 20 }],
+	},
+      },
+    ],
+  ).toArray((err, result) => {
+    if (result) {
+      const final = result[0].data.map((file) => {
+        const tmpFile = {
+            ...file,
+            id: file._id,
+	  };
+          delete tmpFile._id;
+          delete tmpFile.localPath;
+          return tmpFile,
+        });
+        // show the final results
+        return response.status(200).json(final);
+      }
+      console.log('Error occured');
+      return response.status(404).json({ err: 'Not found' });
+    });
+  return null;
+  }
+}
+
+module.export = FilesController;
