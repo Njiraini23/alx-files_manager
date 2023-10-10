@@ -9,10 +9,11 @@ const fileQueue = new Queue('fileQueue', 'redis://127.0.0.1:6379');
 
 class FilesController {
   static async getUser(request) {
+    const token = request.header('X-Token');
     const key = `auth_${token}`;
     const userId = await redisClient.get(key);
     if (userId) {
-      const users = dbCliet.db.collection('users');
+      const users = dbClient.db.collection('users');
       const idObject = new ObjectID(userId);
       const user = await users.findOne({ _id: idObject });
       if (!user) {
@@ -62,7 +63,7 @@ class FilesController {
           type,
           parentId: parentId || 0,
           isPublic,
-	},
+        },
       ).then((result) => response.status(201).json({
         id: result.insertedId,
         userId: user._id,
@@ -70,95 +71,95 @@ class FilesController {
         type,
         isPublic,
         parentId: parentId || 0,
-      })).catch((error);
+      })).catch((error) => {
         console.log(error);
-    });
-  } else {
-    const filePath = process.env.FOLDER_PATH || '/tmp/files_manager';
-    const fileName = `${filePath}/${uuidv4()}`;
-    const buff = Buffer.from(data, 'base64');
-    // store the buffer in utf-8
-    try {
+      });
+    } else {
+      const filePath = process.env.FOLDER_PATH || '/tmp/files_manager';
+      const fileName = `${filePath}/${uuidv4()}`;
+      const buff = Buffer.from(data, 'base64');
+      // store the buffer in utf-8
       try {
-        await fs.mkdir(filePath);
-      } catch (error) {
+        try {
+          await fs.mkdir(filePath);
+        } catch (error) {
         // pass the errors
+        }
+        await fs.writeFile(fileName, buff, 'utf-8');
+      } catch (error) {
+        console.log(error);
       }
-      await fs.writeFile(fileName, buff, 'utf-8');
-    } catch (error) {
-      console.log(error);
-    }
-    files.insertOne(
-      {
-        userId: user._id,
-        name,
-        type,
-        isPublic,
-        parentId: parentId || 0,
-        localpath: filename,
-      },
-    ).then((result) => {
-      response.status(201).json(
+      files.insertOne(
         {
-          id: result.insertedId,
-	  userId: user._id,
-          name, 
+          userId: user._id,
+          name,
           type,
           isPublic,
           parentId: parentId || 0,
-	},
-      );
-      if (type === 'image') {
-        fileQueue.add(
+          localpath: fileName,
+        },
+      ).then((result) => {
+        response.status(201).json(
           {
+            id: result.insertedId,
             userId: user._id,
-            fileId: result.insertedId,
-	  },
-      };
+            name,
+            type,
+            isPublic,
+            parentId: parentId || 0,
+          },
+        );
+        if (type === 'image') {
+          fileQueue.add(
+            {
+              userId: user._id,
+              fileId: result.insertedId,
+            },
+          );
+        }
+      }).catch((error) => console.log(error));
     }
-  }).catch((error) => console.log(error));
-}
-return null;
-}
+    return null;
+  }
 
-static async getIndex(request, response) {
-  const user = await FilesController.getUser(request);
-  if (!user) {
-    return response.status(401).json({ error: 'Unauthorized' });
-  }
-  const {
-    parentId,
-    page,
-  } = request.query;
-  const pageNum = page || 0;
-  const files = dbClient.db.collection('files');
-  let query;
-  if (!parentId) {
-    query = { userId: user._id, parentId:ObjectID(parentId) };
-  } else {
-    query = { userId: user:_id, parentId: ObjectID(parentId) };
-  }
-  files.aggregate(
-    [
-      { $match: query },
-      { $sort: { _id: -1 } },
-      {
-        $facet: {
-          metadata: [{ $count: 'total' }, { $addFields: { page: parseInt(pageNum, 10) } }],
-          data: [{ $skip: 20 * parseInt(pageNum, 10) }, { $limit: 20 }],
-	},
-      },
-    ],
-  ).toArray((err, result) => {
-    if (result) {
-      const final = result[0].data.map((file) => {
-        const tmpFile = {
+  static async getIndex(request, response) {
+    const user = await FilesController.getUser(request);
+    if (!user) {
+      return response.status(401).json({ error: 'Unauthorized' });
+    }
+    const {
+      parentId,
+      page,
+    } = request.query;
+    const pageNum = page || 0;
+    const files = dbClient.db.collection('files');
+    let query;
+    if (!parentId) {
+      query = { userId: user._id, parentId: ObjectID(parentId) };
+    } else {
+      query = { userId: user._id, parentId: ObjectID(parentId) };
+    }
+    files.aggregate(
+      [
+        { $match: query },
+        { $sort: { _id: -1 } },
+        {
+          $facet: {
+            metadata: [{ $count: 'total' }, { $addFields: { page: parseInt(pageNum, 10) } }],
+            data: [{ $skip: 20 * parseInt(pageNum, 10) }, { $limit: 20 }],
+          },
+        },
+      ],
+    ).toArray((err, result) => {
+      if (result) {
+        const final = result[0].data.map((file) => {
+          const tmpFile = {
             ...file,
             id: file._id,
-	  };
+          };
           delete tmpFile._id;
           delete tmpFile.localPath;
-          return tmpFile,
+          return tmpFile;
         });
         // show the final results
         return response.status(200).json(final);
@@ -166,8 +167,8 @@ static async getIndex(request, response) {
       console.log('Error occured');
       return response.status(404).json({ err: 'Not found' });
     });
-  return null;
+    return null;
   }
 }
 
-module.export = FilesController;
+module.exports = FilesController;
