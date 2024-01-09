@@ -6,7 +6,7 @@ class AppController {
     const redisStatus = redisClient.isAlive();
     const dbStatus = dbClient.isAlive();
 
-    res.status(200).send({ redis: redisStatus, db: dbStatus });
+    res.status(200).json({ redis: redisStatus, db: dbStatus });
   }
 
   static async getStats(req, res) {
@@ -14,7 +14,7 @@ class AppController {
       const numUsers = await dbClient.nbUsers();
       const numFiles = await dbClient.nbFiles();
 
-      res.status(200).send({ users: numUsers, files: numFiles });
+      res.status(200).json({ users: numUsers, files: numFiles });
     } catch (error) {
       console.error('Error retrieving stats:', error);
       res.status(500).json({ error: 'Internal Server Error' });
