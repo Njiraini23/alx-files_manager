@@ -78,12 +78,12 @@ class FilesController {
       const filePath = process.env.FOLDER_PATH || '/tmp/files_manager';
       const fileName = `${filePath}/${uuidv4()}`;
       const buff = Buffer.from(data, 'base64');
-      // store the buffer in utf-8
+      // const storeThis = buff.toString('utf-8');
       try {
         try {
           await fs.mkdir(filePath);
         } catch (error) {
-        // pass the errors
+          // pass. Error raised when file already exists
         }
         await fs.writeFile(fileName, buff, 'utf-8');
       } catch (error) {
@@ -96,7 +96,7 @@ class FilesController {
           type,
           isPublic,
           parentId: parentId || 0,
-          localpath: fileName,
+          localPath: fileName,
         },
       ).then((result) => {
         response.status(201).json(
@@ -135,7 +135,7 @@ class FilesController {
     const files = dbClient.db.collection('files');
     let query;
     if (!parentId) {
-      query = { userId: user._id, parentId: ObjectID(parentId) };
+      query = { userId: user._id };
     } else {
       query = { userId: user._id, parentId: ObjectID(parentId) };
     }
@@ -161,11 +161,11 @@ class FilesController {
           delete tmpFile.localPath;
           return tmpFile;
         });
-        // show the final results
+        // console.log(final);
         return response.status(200).json(final);
       }
       console.log('Error occured');
-      return response.status(404).json({ err: 'Not found' });
+      return response.status(404).json({ error: 'Not found' });
     });
     return null;
   }
