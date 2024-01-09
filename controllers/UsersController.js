@@ -1,43 +1,42 @@
 import sha1 from 'sha1';
 import { ObjectID } from 'mongodb';
+import Queue from 'bull';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
 
+const userQueue = new Queue('userQueue', 'redis://127.0.0.1:6379');
+
 class UsersController {
-  static async postNew(req, res) {
-    const { email, password } = req.body;
+  static postNew(request, response) {
+    const { email } = request.body;
+    const { password } = request.body;
 
-    // Check if email and password are provided
     if (!email) {
-      return res.status(400).json({ error: 'Missing email' });
+      response.status(400).json({ error: 'Missing email' });
+      return;
     }
-
     if (!password) {
-      return res.status(400).json({ error: 'Missing password' });
+      response.status(400).json({ error: 'Missing password' });
+      return;
     }
 
-    // Check if email already exists
-    const userExists = await dbClient.db.collection('users').findOne({ email });
-    if (userExists) {
-      return res.status(400).json({ error: 'Already exist' });
-    }
-
-    // Hash the password using SHA1
-    const hashedPassword = sha1(password);
-
-    // Create a new user
-    const result = await dbClient.db.collection('users').insertOne({
-      email,
-      password: hashedPassword,
+    const users = dbClient.db.collection('users');
+    users.findOne({ email }, (err, user) => {
+      if (user) {
+        response.status(400).json({ error: 'Already exist' });
+      } else {
+        const hashedPassword = sha1(password);
+        users.insertOne(
+          {
+            email,
+            password: hashedPassword,
+          },
+        ).then((result) => {
+          response.status(201).json({ id: result.insertedId, email });
+          userQueue.add({ userId: result.insertedId });
+        }).catch((error) => console.log(error));
+      }
     });
-
-    // Return the new user with only email and id
-    const newUser = {
-      id: result.insertedId,
-      email,
-    };
-
-    return res.status(201).json(newUser);
   }
 
   static async getMe(request, response) {
@@ -55,7 +54,7 @@ class UsersController {
         }
       });
     } else {
-      console.log('unreachable');
+      console.log('Hupatikani!');
       response.status(401).json({ error: 'Unauthorized' });
     }
   }
